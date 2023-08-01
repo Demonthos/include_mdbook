@@ -37,10 +37,16 @@ fn write_book_err(err: anyhow::Error) -> TokenStream {
 ///
 /// ```
 fn load_book_from_fs(input: LitStr) -> anyhow::Result<(PathBuf, mdbook_shared::MdBook<PathBuf>)> {
+    let start_time = std::time::Instant::now();
+
     let user_dir = input.value().parse::<PathBuf>()?;
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?);
     let path = manifest_dir.join(user_dir);
-    Ok((path.clone(), MdBook::new(path)?))
+    let result = Ok((path.clone(), MdBook::new(path)?));
+
+    println!("load_book_from_fs took {:?}", start_time.elapsed());
+
+    result
 }
 
 // const STATE_DIR: &str = env!("DIOXUS_ASSET_DIR");
@@ -82,6 +88,7 @@ fn load_book_from_fs(input: LitStr) -> anyhow::Result<(PathBuf, mdbook_shared::M
 // }
 
 fn generate_router(book_path: PathBuf, book: mdbook_shared::MdBook<PathBuf>) -> TokenStream2 {
+    let start_time = std::time::Instant::now();
     let mdbook = write_book_with_routes(book_path, &book);
 
     let book_pages = book.pages().iter().map(|(_, page)| {
@@ -158,7 +165,7 @@ fn generate_router(book_path: PathBuf, book: mdbook_shared::MdBook<PathBuf>) -> 
         }
     });
 
-    quote! {
+    let result = quote! {
         #[derive(Clone, Copy, dioxus_router::prelude::Routable, PartialEq, Eq, Hash, Debug, serde::Serialize, serde::Deserialize)]
         pub enum BookRoute {
             #(#book_routes)*
@@ -191,7 +198,11 @@ fn generate_router(book_path: PathBuf, book: mdbook_shared::MdBook<PathBuf>) -> 
         #(
             #book_pages
         )*
-    }
+    };
+
+    let elapsed = start_time.elapsed();
+    println!("generate_router took: {:?}", elapsed);
+    result
 }
 
 pub(crate) fn path_to_route_variant(path: &Path) -> Ident {
